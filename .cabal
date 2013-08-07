@@ -1,0 +1,10 @@
+name:              chemcombinators
+version:           0.0.2
+author:            Nikita Timofeev
+build-type:        Simple
+cabal-version:     >= 1.8
+
+library
+    ghc-options:     -Wall -fno-warn-orphans
+    build-depends:   base, parsec, semigroups, mtl, chemcombinators, containers
+    exposed-modules: MoleculeParser.Unsafe, MassDistribution, MoleculeParser, Data.Tree, Rules

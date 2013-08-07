@@ -1,0 +1,3 @@
+:set -XOverloadedStrings
+:m + Prelude
+:m + MoleculeParser.Unsafe
