@@ -21,16 +21,16 @@ import Text.Show                    ( Show(..) )
 import Control.Monad.State.Class    ( MonadState(..), modify )
 
 -- containers
-import Data.Map                     ( Map, insertWith, unionWith, empty, delete, toList )
-import qualified Data.Map           ( lookup )
+import Data.Map                     ( Map, insertWith, unionWith, empty, delete )
+import qualified Data.Map           ( lookup, toList )
 
 -- semigroups
-import Data.List.NonEmpty           ( NonEmpty(..), fromList )
+import Data.List.NonEmpty           ( NonEmpty(..), fromList, toList )
 
 -- internal
 import Data.Tree                    ( Tree'(..), insertValue', lookup )
 
-type Symbol        = String -- NonEmpty Char
+type Symbol = NonEmpty Char
 
 data Rule
     = Atom { number :: Integer, weight :: Double, isotopes :: [Isotope] }
@@ -51,10 +51,10 @@ class Simplifyable a where
 instance Simplifyable HalfEmpirical where
     simplify he = rewrite empty he >>= return . Empirical
 
-rewrite :: MonadState RuleBook m => Map String Integer -> HalfEmpirical -> m (Map String Integer)
+rewrite :: MonadState RuleBook m => Map Symbol Integer -> HalfEmpirical -> m (Map Symbol Integer)
 rewrite acc (S str)  = do
     rules <- get
-    case lookup rules (fromList str) of
+    case lookup rules str of
         Nothing             -> error "Unexpected!!!"
         Just (Group he)     -> rewrite acc he
         Just (Atom _ _ _)  -> return $ insertWith (+) str 1 acc
@@ -65,19 +65,19 @@ rewrite acc (G he i) = do
 
 instance Show HalfEmpirical where
     show a = case a of
-        S s       -> s
-        L xs      -> concatMap show' xs
-        G (S s) i -> s ++ showIndex i
+        S s       -> toList s
+        L xs      -> xs >>= show'
+        G (S s) i -> toList s ++ showIndex i
         G n     i -> "(" ++ show n ++ ")" ++ showIndex i
         where
             show' (L xs) = "(" ++ concatMap show' xs ++ ")"
             show' he     = show he
 
 instance Show Empirical where
-    show (Empirical dict) = concatMap (\(s, i) -> s ++ showChemIndex i) $
-        catMaybes (fmap (\x -> fmap (\y -> (x,y)) $ Data.Map.lookup x dict) elements) ++ toList (foldr delete dict elements)
+    show (Empirical dict) = concatMap (\(s, i) -> toList s ++ showChemIndex i) $
+        catMaybes (fmap (\x -> fmap (\y -> (x,y)) $ Data.Map.lookup x dict) elements) ++ Data.Map.toList (foldr delete dict elements)
         where
-            elements = ["C", "H", "O"]
+            elements = map fromList ["C", "H", "O"]
 
 showChemIndex :: Integer -> String
 showChemIndex i
@@ -104,7 +104,7 @@ showDigitIndex d = case d of
 molecularMass :: HalfEmpirical -> RuleBook -> Double
 molecularMass (G he i) rules = fromInteger i * molecularMass he rules
 molecularMass (L ls)   rules = foldl (\a b -> a + molecularMass b rules) 0 ls
-molecularMass (S s)    rules = case lookup rules (fromList s) of
+molecularMass (S s)    rules = case lookup rules s of
     Just (Atom _ m _) -> m
     Just (Group he)   -> molecularMass he rules
     Nothing           -> error "Some thing broken!"

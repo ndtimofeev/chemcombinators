@@ -83,7 +83,7 @@ massDistribution val = do
             foldl (\acc v -> liftM2 iter (go rules v) acc) [(0, 1)] (toList dict)
     where
         getValue :: RuleBook -> Symbol -> Either Double [(Double, Double)]
-        getValue rules sym = case lookup rules (fromList sym) of
+        getValue rules sym = case lookup rules sym of
             Nothing                         -> error "Unexpected!!!"
             Just (Group _)                  -> error "Other shit happens"
             Just (Atom _ w is)

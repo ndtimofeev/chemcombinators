@@ -37,6 +37,9 @@ import Text.Parsec.Char         ( digit, letter, char )
 import Text.Parsec.Prim         ( Stream(..), ParsecT, runParserT, unexpected, try )
 import Text.Parsec.Combinator   ( option, many1, between, eof )
 
+-- semigroup
+import Data.List.NonEmpty       ( fromList )
+
 -- internal
 import Data.Tree                ( Tree'(..) )
 import Rules
@@ -79,9 +82,9 @@ symbol' = get >>= go "" where
     go :: Monad m => String -> RuleBook -> ParsecT [Char] u m (Symbol, Rule)
     go sym rules = letter >>= \l -> case checkPrefix l rules of
         NotMatch          -> unexpected (show l)
-        Match v           -> return (sym ++ [l], v)
+        Match v           -> return (fromList (sym ++ [l]), v)
         Prefix rules'     -> go (sym ++ [l]) rules'
-        SubMatch v rules' -> option (sym ++ [l], v) (try $ go (sym ++ [l]) rules')
+        SubMatch v rules' -> option (fromList (sym ++ [l]), v) (try $ go (sym ++ [l]) rules')
 
 halfEmpiricalParser :: MonadState RuleBook m => String -> m HalfEmpirical
 halfEmpiricalParser str = do
