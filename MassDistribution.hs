@@ -3,9 +3,11 @@
 module MassDistribution
     ( MassDistribution
     , dynamicRange
+    , findMax
     , massResolution
     , testDistribution
-    , massDistribution )
+    , massDistribution
+    , size )
 where
 
 import Prelude
@@ -29,7 +31,7 @@ import Data.Bool                ( Bool(..), (&&), otherwise, not )
 import Data.Ord                 ( Ord(..), max )
 import Data.Tuple               ( fst, snd )
 import Data.List                ( filter, null, zipWith, genericLength )
-import Data.Foldable            ( foldl, foldr, product )
+import Data.Foldable            ( foldl', foldl, foldr, product )
 
 import Text.Show                ( Show(..) )
 import Text.Printf
@@ -39,8 +41,8 @@ import Text.Read                ( Read(..) )
 import Control.Monad.State      ( MonadState(..) )
 
 -- containers
-import Data.Map                 ( Map, insert, insertWith, empty, toList, findMax )
-import qualified Data.Map       ( filter, null )
+import Data.Map                 ( Map, insert, insertWith, empty, toList )
+import qualified Data.Map       ( size, filter, null, findMax )
 
 -- semigroups
 import Data.List.NonEmpty       ( fromList )
@@ -52,14 +54,17 @@ import Rules
 newtype MassDistribution = MassDistribution { unDist :: (Map Double Double) }
     deriving Read
 
+size = Data.Map.size . unDist
+findMax = Data.Map.findMax . unDist
+
 testDistribution :: MassDistribution -> Double
 testDistribution = foldr (+) 0 . unDist
 
 massResolution :: Double -> MassDistribution -> MassDistribution
 massResolution d (MassDistribution dict) =
     MassDistribution $ foldl (\acc (m, p) ->
-        if not (Data.Map.null acc) && fst (findMax acc) + d > m
-            then insertWith (+) (fst (findMax acc)) p acc else insert m p acc)
+        if not (Data.Map.null acc) && fst (Data.Map.findMax acc) + d > m
+            then insertWith (+) (fst (Data.Map.findMax acc)) p acc else insert m p acc)
                 empty (toList dict)
 
 dynamicRange :: Double -> MassDistribution -> MassDistribution
@@ -67,7 +72,7 @@ dynamicRange d (MassDistribution dict) = MassDistribution $
     Data.Map.filter (\a -> logBase 10 (maxP / a) < d) dict
     where
         maxP :: Double
-        maxP = foldl max (snd (findMax dict)) dict
+        maxP = foldl max (snd (Data.Map.findMax dict)) dict
 
 instance Show MassDistribution where
     show (MassDistribution dict) = do
@@ -113,7 +118,7 @@ massDistribution val = do
                     zipWith (\k (p, m) -> (m * fromIntegral k, (p / 100) ^ k)) xs is
 
         kSub :: Integer -> [Integer] -> Integer
-        kSub n = foldl (\acc rep -> acc `div` product [1..rep]) (product [1..n])
+        kSub n = foldl' (\acc rep -> acc `div` product [1..rep]) (product [1..n])
 
         isStable :: Isotope -> Bool
         isStable (Stable _ _) = True

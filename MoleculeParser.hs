@@ -33,7 +33,7 @@ import Control.Monad.State      ( MonadState(..) )
 
 -- parsec
 import Text.Parsec.String       ()
-import Text.Parsec.Char         ( digit, letter, char )
+import Text.Parsec.Char         ( oneOf, digit, letter, char )
 import Text.Parsec.Prim         ( Stream(..), ParsecT, runParserT, unexpected, try )
 import Text.Parsec.Combinator   ( option, many1, between, eof )
 
@@ -64,7 +64,11 @@ index = do
         else unexpected "expected index grater then one"
 
 halfEmpirical :: MonadState RuleBook m => ParsecT String u m HalfEmpirical
-halfEmpirical = liftM L $ many1 $ withIndex (liftM S symbol <|> groupedSymbols)
+halfEmpirical = liftM L $ many1 $ do
+    v <- withIndex (liftM S symbol <|> groupedSymbols)
+    option v $ try delims >> return v
+    where
+        delims = oneOf "-="
 
 groupedSymbols :: MonadState RuleBook m => ParsecT [Char] u m HalfEmpirical
 groupedSymbols = between (char '(') (char ')') halfEmpirical

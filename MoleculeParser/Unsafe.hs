@@ -86,6 +86,7 @@ ruleBook = unsafePerformIO $ do
         , ("TMS", Group "Me3Si")
         , ("Gly", Group "HNCH2CO")
         , ("Ala", Group "HNCHMeCO")
+        , ("bAla", Group "HNCH2CH2CO")
         , ("Val", Group "HNCHCHMe2CO")
         , ("Ile", Group "HNCHCHMeEtCO")
         , ("Leu", Group "HNCHCH2CHMe2CO")
