@@ -2,10 +2,25 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module MoleculeParser.Unsafe ( dist, mr, he, group, (<~), (#) ) where
+module MoleculeParser.Unsafe
+    ( Uni
+    , Deci
+    , Centi
+    , Milli
+    , Micro
+    , Pico
+    , Nano
+    , HighPrecision
+    , Precision
+    , dist
+    , mr
+    , he
+    , group
+    , (<~) )
+where
 
 -- base
-import Prelude                      ( Double )
+import Prelude                      ( Fractional(..), Double )
 
 import Control.Monad                ( Monad(..), mapM_ )
 
@@ -19,6 +34,9 @@ import Data.IORef
 import Data.Function                ( ($), (.) )
 import Data.String                  ( IsString(..), String )
 import Data.Char                    ( Char )
+import Data.Ord                     ( Ord(..) )
+import Data.Eq                      ( Eq(..) )
+import Data.Fixed                   ( Uni, Deci, Centi, Milli, Micro, Pico, Nano )
 
 import System.IO                    ( IO )
 import System.IO.Unsafe             ( unsafePerformIO )
@@ -27,7 +45,12 @@ import System.IO.Unsafe             ( unsafePerformIO )
 import Control.Monad.State.Class    ( MonadState(..) )
 
 -- internal
-import MassDistribution             ( MassDistribution, massResolution, massDistribution )
+import MassDistribution
+    ( MassDistribution
+    , HighPrecision
+    , Precision
+    , massDistribution )
+
 import MoleculeParser               ( mkGroup, halfEmpiricalParser )
 import Rules
     ( HalfEmpirical(..)
@@ -108,20 +131,14 @@ ruleBook = unsafePerformIO $ do
         ]
     return rules
 
-(#) :: a -> (a -> a) -> a
-(#) v f = f v
-
 mr :: HalfEmpirical -> Double
 mr = unsafePerformIO . molecularMassM
 
-dist :: Simplifyable a => a -> MassDistribution
+dist :: (Simplifyable a, Fractional w, Ord w, Fractional p, Eq p) => a -> MassDistribution w p
 dist = unsafePerformIO . massDistribution
 
 he :: String -> HalfEmpirical
 he = unsafePerformIO . halfEmpiricalParser
-
-res :: Double -> MassDistribution -> MassDistribution
-res = massResolution
 
 group :: String -> Rule
 group = unsafePerformIO . mkGroup

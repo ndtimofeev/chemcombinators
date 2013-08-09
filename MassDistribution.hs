@@ -1,15 +1,19 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
 
 module MassDistribution
     ( MassDistribution
-    , dynamicRange
-    , findMax
-    , massResolution
+    , FixedDistribution
+    , Distribution
+    , HighPrecision
+    , Precision
     , testDistribution
-    , massDistribution
-    , size )
+    , massDistribution )
 where
 
+-- base
 import Prelude
     ( Integer
     , Float
@@ -18,6 +22,7 @@ import Prelude
     , Integral(..)
     , Fractional(..)
     , Floating(..)
+    , realToFrac
     , (^)
     , fromIntegral
     , error )
@@ -27,80 +32,87 @@ import Control.Monad            ( Monad(..), fmap, liftM2 )
 import Data.Either              ( Either(..) )
 import Data.Function            ( ($), (.), flip )
 import Data.Maybe               ( Maybe(..) )
-import Data.Bool                ( Bool(..), (&&), otherwise, not )
-import Data.Ord                 ( Ord(..), max )
+import Data.Bool                ( Bool(..), otherwise )
+import Data.Ord                 ( Ord(..) )
+import Data.Eq                  ( Eq(..) )
 import Data.Tuple               ( fst, snd )
-import Data.List                ( filter, null, zipWith, genericLength )
+import Data.List                ( (++), filter, null, zipWith, genericLength )
 import Data.Foldable            ( foldl', foldl, foldr, product )
+import Data.Fixed               ( Fixed, HasResolution(..) )
+import Data.Typeable            ( Typeable(..) )
 
 import Text.Show                ( Show(..) )
-import Text.Printf
 import Text.Read                ( Read(..) )
+
+-- ghc
+import GHC.TypeLits             ( Nat, Sing, SingI(..), fromSing, withSing )
 
 -- mtl
 import Control.Monad.State      ( MonadState(..) )
 
 -- containers
 import Data.Map                 ( Map, insert, insertWith, empty, toList )
-import qualified Data.Map       ( size, filter, null, findMax )
-
--- semigroups
-import Data.List.NonEmpty       ( fromList )
 
 -- internal
 import Data.Tree                ( lookup )
 import Rules
 
-newtype MassDistribution = MassDistribution { unDist :: (Map Double Double) }
+data E4 = E4 deriving Typeable
+
+data E (n :: Nat) = E
+
+instance SingI n => HasResolution (E n) where
+    resolution x = withSing $ f x
+        where
+            f :: p (E n) -> Sing n -> Integer
+            f _ s = 10 ^ fromSing s
+
+instance HasResolution E4 where
+    resolution _ = 10000
+
+type HighPrecision = Fixed E4
+type Precision n = Fixed (E n)
+type FixedDistribution w p = MassDistribution (Precision w) (Precision p)
+type Distribution p = MassDistribution (Precision 4) (Precision p)
+
+newtype MassDistribution a b = MassDistribution { unDist :: (Map a b) }
     deriving Read
 
-size = Data.Map.size . unDist
-findMax = Data.Map.findMax . unDist
-
-testDistribution :: MassDistribution -> Double
+testDistribution :: Num w => MassDistribution m w -> w
 testDistribution = foldr (+) 0 . unDist
 
-massResolution :: Double -> MassDistribution -> MassDistribution
-massResolution d (MassDistribution dict) =
-    MassDistribution $ foldl (\acc (m, p) ->
-        if not (Data.Map.null acc) && fst (Data.Map.findMax acc) + d > m
-            then insertWith (+) (fst (Data.Map.findMax acc)) p acc else insert m p acc)
-                empty (toList dict)
-
-dynamicRange :: Double -> MassDistribution -> MassDistribution
-dynamicRange d (MassDistribution dict) = MassDistribution $
-    Data.Map.filter (\a -> logBase 10 (maxP / a) < d) dict
-    where
-        maxP :: Double
-        maxP = foldl max (snd (Data.Map.findMax dict)) dict
-
-instance Show MassDistribution where
+instance (Show w, Show p) => Show (MassDistribution w p) where
     show (MassDistribution dict) = do
         (m, p) <- toList dict
-        printf "%.4f\t%.4f\n" m p
+        show m ++ "\t" ++ show p ++ "\n"
 
-massDistribution :: (Simplifyable a, MonadState RuleBook m) => a -> m MassDistribution
+normalizeDistribution :: (Fractional w, Ord w, Fractional p) => Map w p -> Map w p
+normalizeDistribution dict = foldl (\acc (m, p) -> insert m (p / norm) acc) empty (toList dict)
+    where
+        norm = foldr (+) 0 dict
+
+massDistribution :: (Simplifyable a, MonadState RuleBook m, Fractional w, Ord w, Fractional p, Eq p) => a -> m (MassDistribution w p)
 massDistribution val = do
     (Empirical dict) <- simplify val
     rules            <- get
-    return $ MassDistribution $
-        foldl (\acc (m, p) -> insertWith (+) m (p * 100) acc) empty $
-            foldl (\acc v -> liftM2 iter (go rules v) acc) [(0, 1)] (toList dict)
+    return $ MassDistribution $ normalizeDistribution $
+        foldl' (\acc (m, p) -> insertWith (+) m p acc) empty $
+            foldl' (\acc v -> filter (\(_, p) -> p /= 0) $ liftM2 iter (go rules v) acc) [(0, 1)] (toList dict)
     where
-        getValue :: RuleBook -> Symbol -> Either Double [(Double, Double)]
+        getValue :: (Fractional w, Fractional p) => RuleBook -> Symbol -> Either w [(p, w)]
         getValue rules sym = case lookup rules sym of
             Nothing                         -> error "Unexpected!!!"
             Just (Group _)                  -> error "Other shit happens"
             Just (Atom _ w is)
-                | null (filter isStable is) -> Left w
+                | null (filter isStable is) -> Left $ realToFrac w
                 | otherwise                 -> Right $ do
                     i <- is
                     case i of
-                        Stable p m -> return (p, m)
+                        Stable p m -> return (realToFrac (p / 100), realToFrac m)
                         Unstable _ -> []
 
 
-        iter :: (Double, Double) -> (Double, Double) -> (Double, Double)
+        iter :: (Num a, Num b) => (a, b) -> (a, b) -> (a, b)
         iter a b = (fst a + fst b, snd a * snd b)
 
         kIndex :: Integer -> Integer -> [[Integer]]
@@ -110,12 +122,13 @@ massDistribution val = do
             vs <- kIndex (x - v) (y - 1)
             return (v:vs)
 
-        go :: RuleBook -> (Symbol, Integer) -> [(Double, Double)]
+        go :: (Fractional w, Fractional p, Eq p) => RuleBook -> (Symbol, Integer) -> [(w, p)]
         go rules (sym, i) = case getValue rules sym of
             Left w   -> [(w * fromIntegral i, 1)]
-            Right is -> flip fmap (kIndex i (genericLength is)) $ \xs ->
-                foldl iter (0, fromIntegral $ kSub i xs) $
-                    zipWith (\k (p, m) -> (m * fromIntegral k, (p / 100) ^ k)) xs is
+            Right is -> filter (\(_, p) -> p /= 0) $
+                flip fmap (kIndex i (genericLength is)) $ \xs ->
+                    foldl' iter (0, fromIntegral $ kSub i xs) $
+                        zipWith (\k (p, m) -> (m * fromIntegral k, p ^ k)) xs is
 
         kSub :: Integer -> [Integer] -> Integer
         kSub n = foldl' (\acc rep -> acc `div` product [1..rep]) (product [1..n])
