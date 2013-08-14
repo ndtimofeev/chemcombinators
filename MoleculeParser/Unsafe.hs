@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
 
 module MoleculeParser.Unsafe
     ( Uni
@@ -12,6 +13,8 @@ module MoleculeParser.Unsafe
     , Nano
     , HighPrecision
     , Precision
+    , FixedDistribution
+    , Distribution
     , dist
     , mr
     , he
@@ -48,6 +51,8 @@ import Control.Monad.State.Class    ( MonadState(..) )
 import MassDistribution
     ( MassDistribution
     , HighPrecision
+    , FixedDistribution
+    , Distribution
     , Precision
     , massDistribution )
 
@@ -61,6 +66,7 @@ import Rules
     , molecularMassM
     , insertSymbol
     , (<~) )
+import Rules.Default                ( defaultRules )
 
 import Data.Tree                    ( Tree' )
 
@@ -72,64 +78,7 @@ instance IsString HalfEmpirical where
     fromString = unsafePerformIO . halfEmpiricalParser
 
 ruleBook :: IORef RuleBook
-ruleBook = unsafePerformIO $ do
-    rules <- newIORef []
-    mapM_ (\(s, r) -> modifyIORef rules (insertSymbol s r)) $
-        [ ("H",  Atom 1  1.008 [Stable 0.0115 2.0141, Stable 99.9885 1.0078])
-        , ("D",  Atom 1  2.014 [])
-        , ("Li", Atom 3  6.941 [Stable 7.5 6.0151, Stable 92.5 7.016])
-        , ("B",  Atom 5  10.811 [Stable 19.9 10.0129, Stable 80.1 11.0093])
-        , ("C",  Atom 6  12.011 [Stable 1.07 13.0033, Stable 98.93 12])
-        , ("N",  Atom 7  14.007 [Stable 99.635 14.0030, Stable 0.365 15.0001])
-        , ("O",  Atom 8  15.999 [Stable 99.759 15.9949, Stable 0.037 16.9991, Stable 0.204 17.9991])
-        , ("F",  Atom 9  18.998 [])
-        , ("Na", Atom 11 22.989 [])
-        , ("Mg", Atom 12 24.305 [])
-        , ("Al", Atom 13 26.981 [])
-        , ("Si", Atom 14 28.085 [])
-        , ("P",  Atom 15 30.973 [])
-        , ("S",  Atom 16 32.066 [])
-        , ("Cl", Atom 17 35.452 [Stable 75.78 34.9688, Stable 24.22 36.9659])
-        , ("K",  Atom 19 39.098 [])
-        , ("Ca", Atom 20 40.078 [])
-        , ("Cu", Atom 29 65.546 [])
-        , ("Br", Atom 35 79.904 [])
-        , ("Ag", Atom 47 107.8682 [])
-        , ("Sn", Atom 50 118.710 [])
-        , ("I",  Atom 53 126.904 [])
-        , ("Et", Group "C2H5")
-        , ("Ph", Group "C6H5")
-        , ("Me", Group "CH3")
-        , ("Ac", Group "CH3CO")
-        , ("Bu", Group "C4H9")
-        , ("Boc", Group "tBuCO2")
-        , ("Bn", Group "PhCH2")
-        , ("Bz", Group "PhCO")
-        , ("Cbz", Group "PhCH2CO2")
-        , ("TMS", Group "Me3Si")
-        , ("Gly", Group "HNCH2CO")
-        , ("Ala", Group "HNCHMeCO")
-        , ("bAla", Group "HNCH2CH2CO")
-        , ("Val", Group "HNCHCHMe2CO")
-        , ("Ile", Group "HNCHCHMeEtCO")
-        , ("Leu", Group "HNCHCH2CHMe2CO")
-        , ("Pro", Group "NCH2CH2CH2CHCO")
-        , ("Ser", Group "HNCHCH2OHCO")
-        , ("Thr", Group "HNCHCHMeOHCO")
-        , ("Cys", Group "HNCHCH2SHCO")
-        , ("Met", Group "HNCHCH2CH2SMeCO")
-        , ("Asp", Group "HNCHCH2COOHCO")
-        , ("Asn", Group "HNCHCH2CONH2CO")
-        , ("Glu", Group "HNCHCH2CH2COOHCO")
-        , ("Gln", Group "HNCHCH2CH2CONH2CO")
-        , ("Lys", Group "HNCHCH2CH2CH2CH2NH2CO")
-        , ("Arg", Group "HNCHCH2CH2CH2NHCNHNH2CO")
-        , ("His", Group "HNCHCH2C3H3N2CO")
-        , ("Phe", Group "HNCHCH2PhCO")
-        , ("Tyr", Group "HNCHCH2C6H4OHCO")
-        , ("Trp", Group "HNCHCH2C8H6NCO")
-        ]
-    return rules
+ruleBook = unsafePerformIO $ newIORef defaultRules
 
 mr :: HalfEmpirical -> Double
 mr = unsafePerformIO . molecularMassM

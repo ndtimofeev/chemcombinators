@@ -7,4 +7,4 @@ cabal-version:     >= 1.8
 library
     ghc-options:     -Wall -fno-warn-orphans
     build-depends:   base, parsec, semigroups, mtl, containers
-    exposed-modules: MoleculeParser.Unsafe, MassDistribution, MoleculeParser, Data.Tree, Rules
+    exposed-modules: MoleculeParser.Unsafe, MassDistribution, MoleculeParser, Data.Tree, Rules, Rules.Default

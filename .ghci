@@ -1,3 +1,4 @@
 :set -XOverloadedStrings
+:set -XDataKinds
 :m + Prelude
 :m + MoleculeParser.Unsafe

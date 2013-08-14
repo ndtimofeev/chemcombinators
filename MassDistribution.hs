@@ -36,10 +36,11 @@ import Data.Bool                ( Bool(..), otherwise )
 import Data.Ord                 ( Ord(..) )
 import Data.Eq                  ( Eq(..) )
 import Data.Tuple               ( fst, snd )
-import Data.List                ( (++), filter, null, zipWith, genericLength )
+import Data.List                ( (++), intercalate, filter, null, zipWith, genericLength )
 import Data.Foldable            ( foldl', foldl, foldr, product )
 import Data.Fixed               ( Fixed, HasResolution(..) )
 import Data.Typeable            ( Typeable(..) )
+import Data.Ratio               ( Rational )
 
 import Text.Show                ( Show(..) )
 import Text.Read                ( Read(..) )
@@ -82,24 +83,28 @@ testDistribution :: Num w => MassDistribution m w -> w
 testDistribution = foldr (+) 0 . unDist
 
 instance (Show w, Show p) => Show (MassDistribution w p) where
-    show (MassDistribution dict) = do
+    show (MassDistribution dict) = intercalate "\n" $ do
         (m, p) <- toList dict
-        show m ++ "\t" ++ show p ++ "\n"
+        return $ show m ++ "\t" ++ show p
 
 normalizeDistribution :: (Fractional w, Ord w, Fractional p) => Map w p -> Map w p
-normalizeDistribution dict = foldl (\acc (m, p) -> insert m (p / norm) acc) empty (toList dict)
+normalizeDistribution dict =
+    foldl (\acc (m, p) -> insert m (p / norm) acc) empty (toList dict)
     where
         norm = foldr (+) 0 dict
 
-massDistribution :: (Simplifyable a, MonadState RuleBook m, Fractional w, Ord w, Fractional p, Eq p) => a -> m (MassDistribution w p)
+massDistribution ::
+    ( Simplifyable a
+    , MonadState RuleBook m
+    , Fractional w, Ord w, Fractional p, Eq p) => a -> m (MassDistribution w p)
 massDistribution val = do
     (Empirical dict) <- simplify val
     rules            <- get
     return $ MassDistribution $ normalizeDistribution $
-        foldl' (\acc (m, p) -> insertWith (+) m p acc) empty $
+        foldl' (\acc (m, p) -> insertWith (+) (realToFrac m) p acc) empty $
             foldl' (\acc v -> filter (\(_, p) -> p /= 0) $ liftM2 iter (go rules v) acc) [(0, 1)] (toList dict)
     where
-        getValue :: (Fractional w, Fractional p) => RuleBook -> Symbol -> Either w [(p, w)]
+        getValue :: Fractional p => RuleBook -> Symbol -> Either Rational [(p, Rational)]
         getValue rules sym = case lookup rules sym of
             Nothing                         -> error "Unexpected!!!"
             Just (Group _)                  -> error "Other shit happens"
@@ -122,13 +127,12 @@ massDistribution val = do
             vs <- kIndex (x - v) (y - 1)
             return (v:vs)
 
-        go :: (Fractional w, Fractional p, Eq p) => RuleBook -> (Symbol, Integer) -> [(w, p)]
+        go :: (Fractional p, Eq p) => RuleBook -> (Symbol, Integer) -> [(Rational, p)]
         go rules (sym, i) = case getValue rules sym of
             Left w   -> [(w * fromIntegral i, 1)]
-            Right is -> filter (\(_, p) -> p /= 0) $
-                flip fmap (kIndex i (genericLength is)) $ \xs ->
-                    foldl' iter (0, fromIntegral $ kSub i xs) $
-                        zipWith (\k (p, m) -> (m * fromIntegral k, p ^ k)) xs is
+            Right is -> flip fmap (kIndex i (genericLength is)) $ \xs ->
+                foldl' iter (0, fromIntegral $ kSub i xs) $
+                    zipWith (\k (p, m) -> (m * fromIntegral k, p ^ k)) xs is
 
         kSub :: Integer -> [Integer] -> Integer
         kSub n = foldl' (\acc rep -> acc `div` product [1..rep]) (product [1..n])
