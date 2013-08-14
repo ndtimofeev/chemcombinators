@@ -13,8 +13,8 @@ What's working now
 Parser:
 * empirical form for set common atoms (e.g. C₉H₁₃N)
 
-    Prelude MoleculeParser.Unsafe> he "C9H13N"
-    C₉H₁₃N
+        Prelude MoleculeParser.Unsafe> he "C9H13N"
+        C₉H₁₃N
 
 * halfempirical form for set common atoms and group (e.g. PhCH₂CH(NH₂)Me)
 * runtime adding new groups and atoms
