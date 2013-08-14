@@ -8,7 +8,7 @@ and the client application code.
 
 
 What's working now
-==================
+------------------
 
 Parser:
 * empirical form for set common atoms (e.g. C₉H₁₃N)
@@ -24,7 +24,7 @@ General:
 
 
 TODO
-====
+----
 
 Parser:
 * lazy patterns for halfempirical parser
@@ -44,19 +44,19 @@ General:
 
 
 How to use it
-=============
+-------------
 
 Now with difficulty. This will require [ghc-7.6.1][1] or later, [cabal-install][2]
 and [git][3].
 
-`git clone https://github.com/KblCb/chemcombinators.git
-cd chemcombinators
-cabal install`
+    git clone https://github.com/KblCb/chemcombinators.git
+    cd chemcombinators
+    cabal install
 
 Then run ghci and do:
 
-`Prelude> :m + MoleculeParser.Unsafe
-Prelude MoleculeParser.Unsafe>`
+    Prelude> :m + MoleculeParser.Unsafe
+    Prelude MoleculeParser.Unsafe>
 
 [1]: http://www.haskell.org/ghc/
 [2]: http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
